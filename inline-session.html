@@ -99,15 +99,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let xrButton = null;
       let xrImmersiveRefSpace = null;
       let xrInlineRefSpace = null;
+      let xrButtonNEW = null;
+      let arStartedNEW = false;
 
       // WebGL scene globals.
       let gl = null;
       let renderer = null;
       let scene = new Scene();
+
       let solarSystem = new Gltf2Node({url: 'media/gltf/space/space.gltf'});
       scene.addNode(solarSystem);
-      scene.addNode(new SkyboxNode({url: 'media/textures/milky-way-4k.png'}));
-
+      let skybox = new SkyboxNode({url: 'media/textures/milky-way-4k.png'});
+      scene.addNode(skybox);
+      
       function initXR() {
         xrButton = new WebXRButton({
           onRequestSession: onRequestSession,
@@ -115,9 +119,22 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         });
         document.querySelector('header').appendChild(xrButton.domElement);
 
+        xrButtonNEW = new WebXRButton({
+              onRequestSession: onRequestSessionNEW,
+              onEndSession: onEndSession,
+              textEnterXRTitle: "START AR",
+              textXRNotFoundTitle: "AR NOT FOUND",
+             textExitXRTitle: "EXIT  AR",
+        });
+       document.querySelector('header').appendChild(xrButtonNEW.domElement);
+
         if (navigator.xr) {
           navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
             xrButton.enabled = supported;
+          });
+
+          navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+              xrButtonNEW.enabled = supported;
           });
 
           // Start up an inline session, which should always be supported on
@@ -127,6 +144,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             onSessionStarted(session);
             updateFov();
           });
+
         }
       }
 
@@ -140,8 +158,27 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         });
       }
 
+      function onRequestSessionNEW() {
+            return navigator.xr.requestSession('immersive-ar').then((session) => {
+                xrButtonNEW.setSession(session);
+               // Set a flag on the session so we can differentiate it from the
+               // inline session.
+               session.isImmersive = true;
+               arStartedNEW = true;
+               onSessionStarted(session);
+           });
+        }
+
       function onSessionStarted(session) {
         session.addEventListener('end', onSessionEnded);
+
+         if (session.isImmersive && arStartedNEW) {
+          // When in 'immersive-ar' mode don't draw an opaque background because
+          // we want the real world to show through.
+          skybox.visible = false;
+        } else {
+          skybox.visible = true;
+        }
 
         if (!gl) {
           gl = createWebGLContext({
@@ -183,14 +220,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         });
 
         let refSpaceType = session.isImmersive ? 'local' : 'viewer';
+        
         session.requestReferenceSpace(refSpaceType).then((refSpace) => {
           // Since we're dealing with multiple sessions now we need to track
           // which XRReferenceSpace is associated with which XRSession.
           if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
+            
+            xrImmersiveRefSpace.addEventListener('reset', (evt) => {
+            if (evt.transform) {
+              // AR experiences typically should stay grounded to the real world.
+              // If there's a known origin shift, compensate for it here.
+              xrImmersiveRefSpace = xrImmersiveRefSpace.getOffsetReferenceSpace(evt.transform);
+            }
+            });
           } else {
             xrInlineRefSpace = refSpace;
           }
+          
           session.requestAnimationFrame(onXRFrame);
         });
       }
@@ -280,7 +327,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       function addInlineViewListeners(canvas) {
         canvas.addEventListener('mousemove', (event) => {
           // Only rotate when the right button is pressed
-          if (event.buttons && 2) {
+          if (event.buttons & 2) {
             rotateView(event.movementX, event.movementY);
           }
         });
