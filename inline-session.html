@@ -99,8 +99,11 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let xrButton = null;
       let xrImmersiveRefSpace = null;
       let xrInlineRefSpace = null;
+
       let xrButtonNEW = null;
       let arStartedNEW = false;
+      let vrSession = null;
+      let arSession = null;
 
       // WebGL scene globals.
       let gl = null;
@@ -112,6 +115,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       let skybox = new SkyboxNode({url: 'media/textures/milky-way-4k.png'});
       scene.addNode(skybox);
       
+      //experiment irgendein objekt hinzufügen
+      const cubeSize = 4;
+      const cubeGeometry = new THREE.BoxGeometry(
+          cubeSize,
+          cubeSize,
+          cubeSize
+      );  
+      const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+      cube.position.set(cubeSize + 1, cubeSize + 1, 0);
+      cube.castShadow = true;
+      scene.add(cube);
+        
       function initXR() {
         xrButton = new WebXRButton({
           onRequestSession: onRequestSession,
@@ -124,7 +139,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
               onEndSession: onEndSession,
               textEnterXRTitle: "START AR",
               textXRNotFoundTitle: "AR NOT FOUND",
-             textExitXRTitle: "EXIT  AR",
+              textExitXRTitle: "EXIT  AR",
         });
        document.querySelector('header').appendChild(xrButtonNEW.domElement);
 
@@ -150,6 +165,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onRequestSession() {
         return navigator.xr.requestSession('immersive-vr').then((session) => {
+          vrSession = session;
           xrButton.setSession(session);
           // Set a flag on the session so we can differentiate it from the
           // inline session.
@@ -160,6 +176,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
       function onRequestSessionNEW() {
             return navigator.xr.requestSession('immersive-ar').then((session) => {
+              arSession = session;
                 xrButtonNEW.setSession(session);
                // Set a flag on the session so we can differentiate it from the
                // inline session.
@@ -173,8 +190,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         session.addEventListener('end', onSessionEnded);
 
          if (session.isImmersive && arStartedNEW) {
-          // When in 'immersive-ar' mode don't draw an opaque background because
-          // we want the real world to show through.
           skybox.visible = false;
         } else {
           skybox.visible = true;
@@ -247,9 +262,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       }
 
       function onSessionEnded(event) {
-        // Only reset the button when the immersive session ends.
-        if (event.session.isImmersive) {
+         if (event.session === vrSession) {
           xrButton.setSession(null);
+          vrSession = null;
+        } else if (event.session === arSession) {
+          xrButtonNEW.setSession(null);
+          arSession = null;
+          arStartedNEW = false;
+          skybox.visible = true;
         }
       }
 
