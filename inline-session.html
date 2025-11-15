@@ -114,18 +114,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
       scene.addNode(solarSystem);
       let skybox = new SkyboxNode({url: 'media/textures/milky-way-4k.png'});
       scene.addNode(skybox);
-      
-      //experiment irgendein objekt hinzufügen
-      const cubeSize = 4;
-      const cubeGeometry = new THREE.BoxGeometry(
-          cubeSize,
-          cubeSize,
-          cubeSize
-      );  
-      const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-      cube.position.set(cubeSize + 1, cubeSize + 1, 0);
-      cube.castShadow = true;
-      scene.add(cube);
+
+      // >>> Testobjekt hinzufügen (zweites glTF)
+      let testObj = new Gltf2Node({url: 'media/gltf/space/space.gltf'});
+      // einfache Transformation per Matrix
+      mat4.fromTranslation(testObj.matrix, [5, 0, 0]); // 5 Einheiten nach rechts
+      scene.addNode(testObj);
         
       function initXR() {
         xrButton = new WebXRButton({
